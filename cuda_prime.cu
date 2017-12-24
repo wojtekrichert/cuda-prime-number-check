@@ -8,11 +8,12 @@ __global__
 void lista_pierwszych( unsigned long long int *d_sqrtzliczby,
                        unsigned long long int *d_liczba,
                        bool *d_jest,
-                       int *current_thread_count){
+                       int *current_thread_count,
+                       long int q){
   atomicAdd(current_thread_count, 1);
     long int i = (blockIdx.x*blockDim.x + threadIdx.x);
-    if(i<*d_sqrtzliczby+100 && i>2 && i%2!=0){
-      if(*d_liczba % i==0){
+    if((i+61440000*q)<*d_sqrtzliczby+100 && (i+61440000*q)>2 && (i+61440000*q)%2!=0){
+      if(*d_liczba % (i+61440000*q)==0){
         *d_jest =1 ;
       }
     }
@@ -24,7 +25,7 @@ int liczbapierwsza() {
 	bool z=1;
 	long  y=2;
 	int i = 2;
-	unsigned long long int x=281200132374529;
+	unsigned long long int x=12808970049658849609;
 		while (y < sqrt(x)+10) {
 			int flag = 0;
 			for (i; i <= i / 2; i++){
@@ -69,8 +70,10 @@ int main(void){
   cudaMalloc(&d_sqrtzliczby, sizeof(unsigned long long));
   cudaMalloc(&d_jest,sizeof(unsigned long long));
 
-  *liczba = 281200132374529;
+  *liczba = 12808970049658849609;
   *sqrtzliczby = sqrtl(*liczba);
+  long int op= (int)ceil(*sqrtzliczby/61440000);
+  printf("\n %ld \n", op);
   printf("pierwiastek z liczby: %llu\n ", *sqrtzliczby);
   cudaMemcpy(d_liczba,liczba,sizeof(unsigned long long), cudaMemcpyHostToDevice);
   cudaMemcpy(d_sqrtzliczby,sqrtzliczby, sizeof(unsigned long long),cudaMemcpyHostToDevice );
@@ -81,9 +84,11 @@ int main(void){
     printf("%llu nie jest liczba pierwsza\n", *liczba);
   }
   else{
-    lista_pierwszych<<<((int)sqrt(*liczba)+255)/256, 256>>>( d_sqrtzliczby,d_liczba,d_jest, dev_tally);
-    cudaMemcpy(jest, d_jest,sizeof(bool),cudaMemcpyDeviceToHost);
-    cudaMemcpy(&tally, dev_tally, sizeof(int), cudaMemcpyDeviceToHost);
+    for(int q=0;q <= op; q++){
+      lista_pierwszych<<<60000,1024>>>( d_sqrtzliczby,d_liczba,d_jest, dev_tally ,q);
+    }
+      cudaMemcpy(jest, d_jest,sizeof(bool),cudaMemcpyDeviceToHost);
+      cudaMemcpy(&tally, dev_tally, sizeof(int), cudaMemcpyDeviceToHost);
     printf("total number of threads that executed was: %d\n", tally);
     if(*jest == 0){
       printf("%llu jest liczba pierwsza\n", *liczba);
